@@ -1,0 +1,122 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{color-scheme:dark;--gold:#e5bd7b;--line:#a87848;--text:#fff0de}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;background:transparent;color:var(--text);font:12px 'Segoe UI',Arial,sans-serif;overflow:hidden}
+.meter{position:relative;display:flex;flex-direction:column;width:100%;height:100%;background:linear-gradient(145deg,#28202ded,#11121af4 72%,#0b0c14f8);border:1px solid #a47a47;border-radius:8px;box-shadow:0 12px 28px #000a,0 0 0 1px #1e1721 inset;overflow:hidden}
+.meter:before{content:'';position:absolute;inset:3px;border:1px solid #caa56d24;border-radius:5px;pointer-events:none}
+.titlebar{height:40px;min-height:40px;display:flex;align-items:center;gap:10px;padding:0 10px 0 12px;border-bottom:1px solid #bc8c53;background:linear-gradient(90deg,#362738,#1c1a24);cursor:grab;touch-action:none;user-select:none}
+.titlebar:active{cursor:grabbing}
+.title-symbol{width:19px;height:19px;display:grid;place-items:center;border:1px solid #dab67b;transform:rotate(45deg);color:#e3bc81;flex:none}
+.title-symbol span{display:block;font-size:12px;transform:rotate(-45deg)}
+.title{font-size:12px;line-height:1;font-weight:800;letter-spacing:.12em;color:#f4c783;text-transform:uppercase;white-space:nowrap}
+.title-spacer{flex:1;min-width:2px}.drag-dots{color:#c79e68;opacity:.85;font-size:16px;line-height:1;letter-spacing:-.18em;padding-right:5px}
+.collapse{width:24px;height:24px;border:0;background:transparent;color:#e9bc7a;font-size:22px;cursor:pointer;flex:none;padding:0;display:grid;place-items:center;line-height:1}
+.collapse:hover,.collapse:focus-visible{color:#fff2d4;background:#be95502a;outline:1px solid #cba46e}
+.list{flex:1;min-height:0;overflow:auto;padding:9px 10px 10px 10px;scrollbar-width:thin;scrollbar-color:#826441 #211820;overscroll-behavior:contain}
+.list::-webkit-scrollbar{width:6px}.list::-webkit-scrollbar-thumb{background:#775a42;border-radius:10px}.list::-webkit-scrollbar-track{background:#1a1821}
+.spell-row{position:relative;display:grid;grid-template-columns:24px 19px minmax(0,1fr) auto;align-items:center;gap:5px;height:33px;margin-bottom:3px;padding:2px 6px 2px 4px;background:linear-gradient(90deg,#432b4099,#221c2cbb);border:1px solid #70513e66;border-radius:3px;overflow:hidden}
+.spell-row:nth-child(even){background:linear-gradient(90deg,#43272d95,#231b249c)}
+.spell-row:first-child{background:linear-gradient(90deg,#5840669e,#2c23399e);border-color:#b8956d8f}
+.spell-row .spell-icon{width:24px;height:24px;border:1px solid #a6886d4d;border-radius:3px;background:linear-gradient(130deg,var(--skill-bg,#4b355b),#14151e);color:var(--skill-color,#d7b3e9);font-size:15px;display:grid;place-items:center;box-shadow:0 0 8px #0008 inset;line-height:1}
+.rank{font-size:11px;color:#e0c49f;font-weight:700;align-self:center;font-variant-numeric:tabular-nums}
+.spell-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;font-size:11px;color:#f9e4d6}
+.damage{white-space:nowrap;text-align:right;font-size:11px;font-weight:750;color:#fff6e9;font-variant-numeric:tabular-nums}
+.damage .dps{color:#dcc9b9;font-weight:500}
+.damage-bar{position:absolute;bottom:0;left:0;height:2px;width:0;background:linear-gradient(90deg,#95607c,#f0c184);opacity:.9;pointer-events:none}
+.empty{padding:24px 12px;color:#c1aca4;font-size:12px;text-align:center}
+.grip{position:absolute;bottom:0;right:0;width:24px;height:24px;touch-action:none;cursor:nwse-resize;background:repeating-linear-gradient(135deg,transparent 0 5px,#d2a465 5px 7px,transparent 7px 10px);clip-path:polygon(100% 0,100% 100%,0 100%);opacity:.9}
+.grip:hover{filter:brightness(1.4)}
+.meter.collapsed .list,.meter.collapsed .grip{display:none}
+@media(max-width:360px){.title{font-size:11px;letter-spacing:.07em}.spell-name,.damage{font-size:10px}}
+</style></head><body>
+<div class="meter" id="meter">
+  <div class="titlebar" id="titlebar" aria-label="Déplacer DPS Meter">
+    <span class="title-symbol" aria-hidden="true"><span>✦</span></span>
+    <span class="title">DPS Meter</span><span class="title-spacer"></span>
+    <span class="drag-dots" aria-hidden="true">⠿</span>
+    <button class="collapse" id="collapse" type="button" title="Réduire la fenêtre" aria-label="Réduire la fenêtre">×</button>
+  </div>
+  <div class="list" id="rows"><div class="empty">Les dégâts de tes sorts apparaîtront ici.</div></div>
+  <div class="grip" id="grip" role="separator" aria-label="Redimensionner DPS Meter" title="Redimensionner la fenêtre"></div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const WINDOW_TYPE='ASHFALL_ADDON_WINDOW_V1';
+const WINDOW_STATE='ASHFALL_ADDON_WINDOW_STATE_V1';
+let collapsed=false,lastRun=null;
+function compact(number){
+ const n=Math.max(0,Number(number)||0);
+ if(n>=1e12)return (n/1e12).toFixed(2)+'T';
+ if(n>=1e9)return (n/1e9).toFixed(2)+'Md';
+ if(n>=1e6)return (n/1e6).toFixed(2)+'M';
+ if(n>=10000)return (n/1000).toFixed(1)+'K';
+ return Math.round(n).toLocaleString('fr-FR');
+}
+function iconFor(id){
+ const source=String(id||'');
+ if(/burn|fire|pyre|incend|braise/i.test(source))return ['✦','#79402e','#f9c079'];
+ if(/poison|necrom|death|rot|wraith/i.test(source))return ['☣','#305d42','#96e9a6'];
+ if(/ice|frost|givr|cold/i.test(source))return ['❄','#2e5868','#b6e4f0'];
+ if(/slash|attack|bleed/i.test(source))return ['⚔','#633b49','#f0b7bd'];
+ if(/f:|arcane|magic|shock|chain/i.test(source))return ['✧','#503c77','#ddc2ff'];
+ return ['✥','#58446b','#dfc6ff'];
+}
+function renderSpells(spells){
+ const list=$('rows');const offset=list.scrollTop;list.replaceChildren();
+ if(!spells.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aucun dégât enregistré.';list.append(empty);return;}
+ const max=Math.max(1,Number(spells[0].totalDamage)||0);
+ for(const [index,spell] of spells.slice(0,50).entries()){
+  const row=document.createElement('div');row.className='spell-row';
+  const icon=document.createElement('span');icon.className='spell-icon';
+  const [symbol,bg,fg]=iconFor(spell.id);icon.textContent=symbol;icon.style.setProperty('--skill-bg',bg);icon.style.setProperty('--skill-color',fg);
+  const rank=document.createElement('span');rank.className='rank';rank.textContent=(index+1)+'.';
+  const name=document.createElement('span');name.className='spell-name';name.textContent=String(spell.name||spell.id||'Autre').slice(0,75);name.title=name.textContent;
+  const damage=document.createElement('span');damage.className='damage';damage.textContent=compact(spell.totalDamage)+' ';
+  const dps=document.createElement('span');dps.className='dps';dps.textContent='('+compact(spell.avgDps)+'/s)';damage.append(dps);
+  const bar=document.createElement('span');bar.className='damage-bar';bar.style.width=Math.max(1,Math.round((Number(spell.totalDamage)||0)/max*100))+'%';
+  row.append(icon,rank,name,damage,bar);list.append(row);
+ }
+ list.scrollTop=offset;
+}
+function syncCollapsed(){
+ $('meter').classList.toggle('collapsed',collapsed);
+ $('collapse').textContent=collapsed?'＋':'×';
+ $('collapse').title=collapsed?'Déployer la fenêtre':'Réduire la fenêtre';
+ $('collapse').setAttribute('aria-label',$('collapse').title);
+}
+window.addEventListener('message',event=>{
+ if(event.source!==window.parent)return;
+ const packet=event.data;
+ if(packet?.type===WINDOW_STATE){collapsed=packet.collapsed===true;syncCollapsed();return;}
+ if(packet?.type!=='ASHFALL_TELEMETRY_V2'||packet.data?.schema!==2)return;
+ const data=packet.data;
+ if(!Array.isArray(data.topSpells))return;
+ if(data.runId!==lastRun){lastRun=data.runId;$('rows').scrollTop=0;}
+ renderSpells(data.topSpells);
+});
+function notify(action,extra={}){window.parent.postMessage({type:WINDOW_TYPE,action,...extra},'*');}
+function attachGesture(element,mode){
+ let start=null;
+ element.addEventListener('pointerdown',event=>{
+  if(event.button!==0||event.target.closest('button')||collapsed&&mode==='resize')return;
+  start={x:event.screenX,y:event.screenY,id:event.pointerId};
+  element.setPointerCapture(event.pointerId);
+  notify('start',{mode});event.preventDefault();
+ });
+ element.addEventListener('pointermove',event=>{
+  if(!start||start.id!==event.pointerId)return;
+  notify('move',{dx:event.screenX-start.x,dy:event.screenY-start.y});event.preventDefault();
+ });
+ const end=event=>{
+  if(!start||start.id!==event.pointerId)return;
+  start=null;notify('end');
+ };
+ element.addEventListener('pointerup',end);
+ element.addEventListener('pointercancel',end);
+ element.addEventListener('lostpointercapture',event=>{if(start&&start.id===event.pointerId){start=null;notify('end');}});
+}
+attachGesture($('titlebar'),'move');attachGesture($('grip'),'resize');
+$('collapse').addEventListener('click',()=>{collapsed=!collapsed;syncCollapsed();notify('collapse',{collapsed});});
+</script></body></html>
