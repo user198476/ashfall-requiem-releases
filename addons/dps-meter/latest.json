@@ -3,7 +3,7 @@
   "manifest": {
     "id": "dps-meter",
     "name": "Compteur de dégâts",
-    "version": "2.3.0",
+    "version": "2.4.0",
     "entry": "index.html",
     "apiVersion": 2,
     "permissions": [
@@ -16,7 +16,7 @@
   "files": {
     "index.html": {
       "url": "https://raw.githubusercontent.com/user198476/ashfall-requiem-releases/main/addons/dps-meter/index.html",
-      "sha256": "39e08f26feb795250a1816e56accc6b807d86193117181949fb3ad47bba186e5"
+      "sha256": "8346d5a7cedd2a8f25223e4e37df919e17da32b9a22db23abd7bbf64b9f8ee51"
     }
   }
 }
