@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "manifest": {
+    "id": "dps-meter",
+    "name": "DPS Meter",
+    "version": "2.1.0",
+    "entry": "index.html",
+    "apiVersion": 2,
+    "permissions": [
+      "combat.read"
+    ],
+    "updates": {
+      "url": "https://raw.githubusercontent.com/user198476/ashfall-requiem-releases/main/addons/dps-meter/latest.json"
+    }
+  },
+  "files": {
+    "index.html": {
+      "url": "https://raw.githubusercontent.com/user198476/ashfall-requiem-releases/main/addons/dps-meter/index.html",
+      "sha256": "1eb338b5078be5008668938e08ef799a44368b21c6b20b7d53f7696c9c1ea837"
+    }
+  }
+}
