@@ -121,8 +121,9 @@ window.addEventListener('message',event=>{
  if(event.source!==window.parent)return;
  const packet=event.data;
  if(packet?.type===WINDOW_STATE){collapsed=packet.collapsed===true;syncCollapsed();return;}
- if(packet?.type!=='ASHFALL_TELEMETRY_V2'||packet.data?.schema!==2)return;
- const data=packet.data;
+ if(packet?.type!=='ASHFALL_TELEMETRY_V2'&&packet?.type!=='ASHFALL_SNAPSHOT_V3')return;
+ const data=packet.type==='ASHFALL_SNAPSHOT_V3'?packet.data?.combat:packet.data;
+ if(data?.schema!==2)return;
  if(!Array.isArray(data.topSpells))return;
  if(data.runId!==lastRun){lastRun=data.runId;$('rows').scrollTop=0;}
  lastSnapshot=data;renderSpells(data.topSpells);
